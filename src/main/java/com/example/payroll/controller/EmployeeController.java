@@ -1,8 +1,11 @@
 package com.example.payroll.controller;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
+
+import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,10 +28,16 @@ public class EmployeeController {
 		this.repository = repository;
 	}
 	
-	//Listar funcionários
+	//Listar funcionários com REST
 	@GetMapping("/employees")
-	public List<Employee> all(){
-		return repository.findAll();
+	public CollectionModel<EntityModel<Employee>> all(){
+		List<EntityModel<Employee>> employees = repository.findAll().stream()
+			      .map(employee -> EntityModel.of(employee,
+			          linkTo(methodOn(EmployeeController.class).one(employee.getId())).withSelfRel(),
+			          linkTo(methodOn(EmployeeController.class).all()).withRel("employees")))
+			      .collect(Collectors.toList());
+		
+		return CollectionModel.of(employees, linkTo(methodOn(EmployeeController.class).all()).withSelfRel());
 	}
 		
 	//Salvar novo funcionário
@@ -37,7 +46,7 @@ public class EmployeeController {
 		return repository.save(newEmployee);
 	}
 	
-	//Pesquisar um funcionário por id e jogar exceção caso não exista
+	//Pesquisar um funcionário por id e jogar exceção caso não exista com REST
 	@GetMapping("/employees/{id}")
 	public EntityModel<Employee> one(@PathVariable Long id) {
 		Employee employee = repository.findById(id).orElseThrow(() -> new EmployeeNotFoundException(id));
