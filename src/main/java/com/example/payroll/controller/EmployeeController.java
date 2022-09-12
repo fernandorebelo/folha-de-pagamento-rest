@@ -7,6 +7,8 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.IanaLinkRelations;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.payroll.entity.Employee;
 import com.example.payroll.exceptions.EmployeeNotFoundException;
+import com.example.payroll.features.EmployeeModelAssembler;
 import com.example.payroll.repository.EmployeeRepository;
 
 @RestController
@@ -43,8 +46,13 @@ public class EmployeeController {
 		
 	//Salvar novo funcionário
 	@PostMapping("/employees")
-	public Employee newEmployee(@RequestBody Employee newEmployee) {
-		return repository.save(newEmployee);
+	ResponseEntity<?> newEmployee(@RequestBody Employee newEmployee) {
+
+	  EntityModel<Employee> entityModel = assembler.toModel(repository.save(newEmployee));
+
+	  return ResponseEntity //
+	      .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
+	      .body(entityModel);
 	}
 	
 	//Pesquisar um funcionário por id e jogar exceção caso não exista com REST
@@ -57,22 +65,31 @@ public class EmployeeController {
 	
 	//Alterar funcionário por id
 	@PutMapping("/employees/{id}")
-	public Employee replaceEmployee (@RequestBody Employee newEmployee, @PathVariable Long id) {
-		return repository.findById(id)
-				.map(employee -> {
-					employee.setName(newEmployee.getName());
-					employee.setRole(newEmployee.getRole());
-					return repository.save(employee);
-				}).orElseGet(() -> {
-					newEmployee.setId(id);
-					return repository.save(newEmployee);
-				});
+	ResponseEntity<?> replaceEmployee(@RequestBody Employee newEmployee, @PathVariable Long id) {
+
+	  Employee updatedEmployee = repository.findById(id) //
+	      .map(employee -> {
+	        employee.setName(newEmployee.getName());
+	        employee.setRole(newEmployee.getRole());
+	        return repository.save(employee);
+	      }) //
+	      .orElseGet(() -> {
+	        newEmployee.setId(id);
+	        return repository.save(newEmployee);
+	      });
+
+	  EntityModel<Employee> entityModel = assembler.toModel(updatedEmployee);
+
+	  return ResponseEntity //
+	      .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
+	      .body(entityModel);
 	}
 	
 	//Deletar funcionário
 	@DeleteMapping("/employees/{id}")
-	public void deleteEmployee(@PathVariable Long id) {
-		repository.deleteById(id);
+	ResponseEntity<?> deleteEmployee(@PathVariable Long id) {
+	  repository.deleteById(id);
+	  return ResponseEntity.noContent().build();
 	}
 	
 }
